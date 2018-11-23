@@ -106,13 +106,54 @@ function! s:EvaluateHL(expr, lnum, ...)                                         
 endfunction
 
 
+function! s:GenerateNewMarkId(lnum)
+  " Description: Generate a new id for mark on the current line
+  " Arguments:
+  "   lnum : Line number for which the sign string is to be modified
+
+  if ( has_key(b:sig_mark_id_dict, a:lnum))
+    let l:id = b:sig_mark_id_dict[a:lnum]
+  else
+    if ( len(b:sig_mark_id_pool) == 0)
+      let l:id = len(b:sig_mark_id_dict) + 1
+    else
+      let l:id = remove(b:sig_mark_id_pool, -1)
+    endif
+
+    let b:sig_mark_id_dict[a:lnum] = l:id
+  endif
+
+  return l:id
+endfunction
+
+
+function! s:RemoveMarkId(lnum)
+  " Description: Get and remove id for mark on the current line
+  " Arguments:
+  "   lnum : Line number for which the sign string is to be modified
+
+  if has_key(b:sig_mark_id_dict, a:lnum)
+    let l:id = b:sig_mark_id_dict[a:lnum]
+
+    call remove(b:sig_mark_id_dict, a:lnum)
+
+    call add(b:sig_mark_id_pool, l:id)
+  else
+    let l:id = 0
+  endif
+
+  return l:id
+endfunction
+
+
 function! s:RefreshLine(lnum)                                                                                      "{{{1
   " Description: Decides what the sign string should be based on if there are any marks or markers (using b:sig_marks
   "              and b:sig_markers) on the current line and the value of b:SignaturePrioritizeMarks.
   " Arguments:
   "   lnum : Line number for which the sign string is to be modified
 
-  let l:id  = abs(a:lnum * 1000 + bufnr('%'))
+  "let l:id  = abs(a:lnum * 1000 + bufnr('%'))
+  let l:id = s:GenerateNewMarkId(a:lnum)
   let l:str = ""
 
   " Place the sign
@@ -145,7 +186,11 @@ function! s:RefreshLine(lnum)                                                   
   endif
 
   if (l:str != "")
-    execute 'sign place ' . l:id . ' line=' . a:lnum . ' name=Signature_' . l:str . ' buffer=' . bufnr('%')
+    try
+      execute 'sign place ' . l:id . ' line=' . a:lnum . ' name=Signature_' . l:str . ' buffer=' . bufnr('%')
+    catch /E474/
+      echom 'Invalid Argument: sign place ' . l:id . ' line=' . a:lnum . ' name=Signature_' . l:str . ' buffer=' . bufnr('%')
+    endtry
   endif
 
   " If there is only 1 mark/marker in the file, place a dummy to prevent flickering of the gutter when it is moved
@@ -190,7 +235,8 @@ endfunction
 function! signature#sign#Unplace(lnum)                                                                             "{{{1
   " Description: Remove the sign from the specified line number
   " FIXME: Clean-up. Undefine the sign
-  let l:id = abs(a:lnum * 1000 + bufnr('%'))
+  "let l:id = abs(a:lnum * 1000 + bufnr('%'))
+  let l:id = s:RemoveMarkId(a:lnum)
   silent! execute 'sign unplace ' . l:id
 endfunction
 
@@ -364,6 +410,16 @@ function! s:InitializeVars(...)                                                 
     call filter( b:sig_markers, 'v:key <= l:line_tot' )
   endif
 
+  if !exists('b:sig_mark_id_dict')
+    " b:sig_mark_id_dict = { lnum => signs_id }
+    let b:sig_mark_id_dict = {}
+  endif
+
+  if !exists('b:sig_mark_id_pool')
+    " b:sig_mark_id_pool = [ available ids ], empty means all number could be used
+    let b:sig_mark_id_pool = []
+  endif
+
   call signature#utils#Set('b:sig_DummyExists'         , 0                          , a:0 && a:1)
   call signature#utils#Set('b:sig_enabled'             , g:SignatureEnabledAtStartup, a:0 && a:1)
   call signature#utils#Set('b:SignatureIncludeMarks'   , g:SignatureIncludeMarks    , a:0 && a:1)
@@ -373,3 +429,4 @@ function! s:InitializeVars(...)                                                 
   call signature#utils#Set('b:SignatureDeferPlacement' , g:SignatureDeferPlacement  , a:0 && a:1)
   call signature#utils#Set('b:SignatureWrapJumps'      , g:SignatureWrapJumps       , a:0 && a:1)
 endfunction
+
