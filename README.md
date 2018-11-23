@@ -1,3 +1,6 @@
+#### 2018-11-23:
+Used id pool and dictionary to generate 
+
 #### 2017-09-23:
 Changed the default value of `g:SignatureForceRemoveGlobal` to 0 since using `:wviminfo!`/`:wshada!` is a very heavy hammer and because it goes against a \*vim default.  
 
